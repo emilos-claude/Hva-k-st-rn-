@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Marius' DBA-quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1530;--card:#1a2247;--ink:#f4f1e8;--muted:#9aa3c7;--acc:#ffd23f;--ok:#3ddc97;--bad:#ff6b6b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:480px;margin:0 auto;padding:20px 16px 40px;min-height:100dvh;display:flex;flex-direction:column;gap:16px}
+h1{font-family:'Archivo Black',sans-serif;font-size:28px;margin:4px 0 0;letter-spacing:.5px}
+h1 span{color:var(--acc)}
+.card{background:var(--card);border-radius:18px;padding:20px}
+.lbl{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.big{font-family:'Archivo Black',sans-serif;font-size:26px;line-height:1.15;margin:6px 0 0}
+input{width:100%;font:800 28px Inter,sans-serif;padding:14px 16px;border-radius:14px;border:2px solid #2c3672;background:#0b1026;color:var(--ink);outline:none}
+input:focus{border-color:var(--acc)}
+input.name{font-size:20px;font-weight:600}
+button{width:100%;font:800 20px Inter,sans-serif;padding:16px;border-radius:14px;border:0;background:var(--acc);color:#1a1400;cursor:pointer}
+button:disabled{opacity:.4}
+button.ghost{background:transparent;color:var(--muted);font-size:14px;font-weight:600;padding:8px}
+.row{display:flex;gap:10px;align-items:center}
+.preview{color:var(--muted);font-size:15px;min-height:20px;margin-top:6px}
+.sent{color:var(--ok);font-weight:600;margin-top:10px}
+.pts{font-family:'Archivo Black',sans-serif;font-size:48px;color:var(--acc)}
+.list{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.li{display:flex;justify-content:space-between;padding:8px 12px;border-radius:10px;background:#0b1026}
+.li.me{outline:2px solid var(--acc)}
+.status{position:fixed;top:10px;right:12px;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--bad)}
+.dot.on{background:var(--ok)}
+.muted{color:var(--muted)}
+.center{text-align:center}
+</style>
+</head>
+<body>
+<div class="status"><span class="dot" id="dot"></span><span id="stxt">Forbinder…</span></div>
+<main id="app"></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script>
+const P = new URLSearchParams(location.search);
+const ROOM = (P.get('r') || '').replace(/[^a-z0-9]/gi, '');
+const BROKERS = P.get('b') ? [P.get('b')] : ['wss://broker.hivemq.com:8884/mqtt', 'wss://broker.emqx.io:8084/mqtt'];
+const T = 'dbaquiz/' + ROOM;
+const KEY = 'dbaquiz-team-' + ROOM;
+const kr = n => Number(n).toLocaleString('da-DK') + ' kr.';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let me = null; try { me = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+let state = null;
+let draft = '';
+const app = document.getElementById('app');
+
+// ---- MQTT: forbind til flere offentlige brokere på én gang, så én der fejler ikke stopper legen
+const clients = BROKERS.map(url => {
+  const c = mqtt.connect(url, { reconnectPeriod: 2500, connectTimeout: 8000, clientId: 'dqp_' + Math.random().toString(36).slice(2, 10) });
+  c.on('connect', () => { c.subscribe(T + '/state', { qos: 1 }); if (me) publishMe(); net(); });
+  c.on('close', net); c.on('offline', net); c.on('error', () => {});
+  c.on('message', (topic, buf) => {
+    if (topic !== T + '/state' || !buf.length) return;
+    let s; try { s = JSON.parse(buf.toString()); } catch (e) { return; }
+    if (state && s.ts < state.ts) return; // ældre besked fra en anden broker
+    if (state && s.ts === state.ts) return;
+    state = s; render();
+  });
+  return c;
+});
+function net() {
+  const n = clients.filter(c => c.connected).length;
+  document.getElementById('dot').className = 'dot' + (n ? ' on' : '');
+  document.getElementById('stxt').textContent = n ? 'Forbundet' : 'Forbinder…';
+}
+function publishMe() {
+  if (!me) return;
+  me.ts = Date.now();
+  try { localStorage.setItem(KEY, JSON.stringify(me)); } catch (e) {}
+  const s = JSON.stringify(me);
+  clients.forEach(c => c.publish(T + '/team/' + me.id, s, { qos: 1, retain: true }));
+}
+
+function render() {
+  if (!ROOM) { app.innerHTML = `<h1>Marius' <span>DBA-quiz</span> 🎂</h1><div class="card">Linket mangler rum-koden. Scan QR-koden på storskærmen igen.</div>`; return; }
+  if (!me || !me.name) return renderJoin();
+  const head = `<div class="row" style="justify-content:space-between"><h1>Marius' <span>DBA-quiz</span> 🎂</h1></div>
+    <div class="muted">Hold: <b style="color:var(--ink)">${esc(me.name)}</b></div>`;
+  if (!state || state.phase === 'lobby') {
+    app.innerHTML = head + `<div class="card center"><div class="big">Du er med! 🎉</div><p class="muted">Vent på, at quizzen starter. Hold siden åben.</p></div>` + rename();
+  } else if (state.phase === 'open') {
+    const r = state.round, mine = me.g[r];
+    app.innerHTML = head + `<div class="card">
+      <div class="lbl">Gaveidé ${r + 1} af ${state.total}</div>
+      <div class="big">${esc(state.title)}</div>
+      <p class="muted" style="margin:10px 0 14px">🎁 Gaveidé til Marius. Hvad koster den?</p>
+      <input id="g" inputmode="numeric" autocomplete="off" placeholder="Pris i kr." value="${esc(draft || (mine != null ? mine : ''))}">
+      <div class="preview" id="pv"></div>
+      <div style="height:12px"></div>
+      <button id="send">${mine != null ? 'Ret gæt' : 'Send gæt'}</button>
+      ${mine != null ? `<div class="sent">✓ Sendt: ${kr(mine)} Du kan rette, indtil der låses.</div>` : ''}
+    </div>` + rename();
+    const g = document.getElementById('g'), pv = document.getElementById('pv'), b = document.getElementById('send');
+    const upd = () => { const v = parse(g.value); draft = g.value; pv.textContent = v != null ? kr(v) : ''; b.disabled = v == null; };
+    g.addEventListener('input', upd); upd();
+    b.onclick = () => { const v = parse(g.value); if (v == null) return; me.g[r] = v; draft = ''; publishMe(); render(); };
+    g.addEventListener('keydown', e => { if (e.key === 'Enter') b.click(); });
+  } else if (state.phase === 'locked') {
+    const mine = me.g[state.round];
+    app.innerHTML = head + `<div class="card center"><div class="lbl">Runde ${state.round + 1}: ${esc(state.title)}</div>
+      <div class="big" style="margin:14px 0">🔒 Svarene er låst</div>
+      <p class="muted">${mine != null ? 'Jeres gæt: <b style="color:var(--ink)">' + kr(mine) + '</b>' : 'I nåede ikke at svare.'}</p>
+      <p class="muted">Kig op på skærmen!</p></div>`;
+  } else if (state.phase === 'reveal') {
+    const res = (state.results || []).find(x => x.id === me.id);
+    app.innerHTML = head + `<div class="card center"><div class="lbl">Runde ${state.round + 1}: ${esc(state.title)}</div>
+      <p class="muted" style="margin:12px 0 4px">Prisen var</p><div class="big" style="font-size:34px;color:var(--acc)">${kr(state.price)}</div>
+      ${res && res.guess != null ? `<p>Jeres gæt: <b>${kr(res.guess)}</b><br><span class="muted">${res.guess === state.price ? 'Plet på! 🎯' : res.rank + '. tættest'}</span></p><div class="pts">+${res.pts}</div>` : '<p class="muted">I svarede ikke i denne runde.</p>'}
+    </div>`;
+  } else if (state.phase === 'scores' || state.phase === 'end') {
+    const b = state.board || [];
+    app.innerHTML = head + `<div class="card"><div class="lbl">${state.phase === 'end' ? 'Slutstilling 🏆' : 'Stillingen'}</div>
+      <div class="list">${b.map((x, i) => `<div class="li ${x.id === me.id ? 'me' : ''}"><span>${x.place}. ${esc(x.name)}</span><b>${x.score}</b></div>`).join('')}</div></div>`;
+  }
+}
+function rename() { return `<button class="ghost" onclick="if(confirm('Skifte holdnavn?')){me.name='';renderJoin()}">Skift holdnavn</button>`; }
+function renderJoin() {
+  app.innerHTML = `<h1>Marius' <span>DBA-quiz</span> 🎂</h1>
+  <div class="card"><div class="lbl">Hvad hedder jeres hold?</div>
+  <p class="muted" style="margin:6px 0 14px">🎂 Tillykke Marius! Find sammen i hold, og find på et navn. Én telefon pr. hold er nok.</p>
+  <input class="name" id="n" maxlength="24" placeholder="Holdnavn" value="${esc(me ? me.name : '')}" autocomplete="off">
+  <div style="height:12px"></div><button id="j">Kom med</button></div>`;
+  const n = document.getElementById('n');
+  n.focus();
+  const go = () => { const v = n.value.trim(); if (!v) return; me = me || { id: Math.random().toString(36).slice(2, 10), g: {} }; me.name = v; publishMe(); render(); };
+  document.getElementById('j').onclick = go;
+  n.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+}
+function parse(s) {
+  s = String(s).toLowerCase().replace(/\s|kr\.?/g, '');
+  let m = 1;
+  if (/k$/.test(s)) { m = 1000; s = s.slice(0, -1); }
+  if (m === 1000) s = s.replace(',', '.'); else s = s.replace(/[.,]/g, '');
+  const v = Math.round(parseFloat(s) * m);
+  return isFinite(v) && v >= 0 && v < 1e9 ? v : null;
+}
+render();
+</script>
+</body>
+</html>
