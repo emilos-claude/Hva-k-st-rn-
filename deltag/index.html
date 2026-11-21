@@ -33,6 +33,7 @@ button.ghost{background:transparent;color:var(--muted);font-size:14px;font-weigh
 .dot{width:9px;height:9px;border-radius:50%;background:var(--bad)}
 .dot.on{background:var(--ok)}
 .muted{color:var(--muted)}
+.desc{font-style:italic;background:#0b1026;border-left:4px solid var(--acc);padding:10px 12px;border-radius:10px;margin:12px 0 0;font-size:15px;line-height:1.4}
 .center{text-align:center}
 </style>
 </head>
@@ -93,6 +94,7 @@ function render() {
     app.innerHTML = head + `<div class="card">
       <div class="lbl">Gaveidé ${r + 1} af ${state.total}</div>
       <div class="big">${esc(state.title)}</div>
+      ${state.desc ? `<p class="desc">${esc(state.desc)}</p>` : ''}${state.meta ? `<p class="muted" style="font-size:13px;margin:4px 0 0">${esc(state.meta)}</p>` : ''}
       <p class="muted" style="margin:10px 0 14px">🎁 Gaveidé til Marius. Hvad koster den?</p>
       <input id="g" inputmode="numeric" autocomplete="off" placeholder="Pris i kr." value="${esc(draft || (mine != null ? mine : ''))}">
       <div class="preview" id="pv"></div>
@@ -114,7 +116,7 @@ function render() {
   } else if (state.phase === 'reveal') {
     const res = (state.results || []).find(x => x.id === me.id);
     app.innerHTML = head + `<div class="card center"><div class="lbl">Runde ${state.round + 1}: ${esc(state.title)}</div>
-      <p class="muted" style="margin:12px 0 4px">Prisen var</p><div class="big" style="font-size:34px;color:var(--acc)">${kr(state.price)}</div>
+      <p class="muted" style="margin:12px 0 4px">Prisen var</p><div class="big" style="font-size:34px;color:var(--acc)">${kr(state.price)}</div>${state.note ? `<p class="muted">${esc(state.note)}</p>` : ''}
       ${res && res.guess != null ? `<p>Jeres gæt: <b>${kr(res.guess)}</b><br><span class="muted">${res.guess === state.price ? 'Plet på! 🎯' : res.rank + '. tættest'}</span></p><div class="pts">+${res.pts}</div>` : '<p class="muted">I svarede ikke i denne runde.</p>'}
     </div>`;
   } else if (state.phase === 'scores' || state.phase === 'end') {
