@@ -117,7 +117,7 @@ function render() {
     const res = (state.results || []).find(x => x.id === me.id);
     app.innerHTML = head + `<div class="card center"><div class="lbl">Runde ${state.round + 1}: ${esc(state.title)}</div>
       <p class="muted" style="margin:12px 0 4px">Prisen var</p><div class="big" style="font-size:34px;color:var(--acc)">${kr(state.price)}</div>${state.note ? `<p class="muted">${esc(state.note)}</p>` : ''}
-      ${res && res.guess != null ? `<p>Jeres gæt: <b>${kr(res.guess)}</b><br><span class="muted">${res.guess === state.price ? 'Plet på! 🎯' : res.rank + '. tættest'}</span></p><div class="pts">+${res.pts}</div>` : '<p class="muted">I svarede ikke i denne runde.</p>'}
+      ${res && res.guess != null ? `<p>Jeres gæt: <b>${kr(res.guess)}</b><br><span class="muted">${res.guess === state.price ? 'PLET PÅ! 🎯 Inkl. 5 bonuspoint' : res.rank + '. tættest'}</span></p><div class="pts">+${res.pts}</div>` : '<p class="muted">I svarede ikke i denne runde.</p>'}
     </div>`;
   } else if (state.phase === 'scores' || state.phase === 'end') {
     const b = state.board || [];
@@ -129,7 +129,7 @@ function rename() { return `<button class="ghost" onclick="if(confirm('Skifte ho
 function renderJoin() {
   app.innerHTML = `<h1>Marius' <span>DBA-quiz</span> 🎂</h1>
   <div class="card"><div class="lbl">Hvad hedder jeres hold?</div>
-  <p class="muted" style="margin:6px 0 14px">🎂 Tillykke Marius! Find sammen i hold, og find på et navn. Én telefon pr. hold er nok.</p>
+  <p class="muted" style="margin:6px 0 14px">🎂 Tillykke Marius! Find sammen i hold, og find på et navn. Én telefon pr. hold er nok. Tættest på får 3, 2 og 1 point. Præcis pris giver 5 bonuspoint 🎯</p>
   <input class="name" id="n" maxlength="24" placeholder="Holdnavn" value="${esc(me ? me.name : '')}" autocomplete="off">
   <div style="height:12px"></div><button id="j">Kom med</button></div>`;
   const n = document.getElementById('n');
