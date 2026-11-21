@@ -94,13 +94,13 @@ function render() {
     app.innerHTML = head + `<div class="card">
       <div class="lbl">Gaveidé ${r + 1} af ${state.total}</div>
       <div class="big">${esc(state.title)}</div>
-      ${state.desc ? `<p class="desc">${esc(state.desc)}</p>` : ''}${state.meta ? `<p class="muted" style="font-size:13px;margin:4px 0 0">${esc(state.meta)}</p>` : ''}
       <p class="muted" style="margin:10px 0 14px">🎁 Gaveidé til Marius. Hvad koster den?</p>
       <input id="g" inputmode="numeric" autocomplete="off" placeholder="Pris i kr." value="${esc(draft || (mine != null ? mine : ''))}">
       <div class="preview" id="pv"></div>
       <div style="height:12px"></div>
       <button id="send">${mine != null ? 'Ret gæt' : 'Send gæt'}</button>
       ${mine != null ? `<div class="sent">✓ Sendt: ${kr(mine)} Du kan rette, indtil der låses.</div>` : ''}
+      ${state.desc ? `<p class="desc">${esc(state.desc)}</p>` : ''}${state.meta ? `<p class="muted" style="font-size:13px;margin:4px 0 0">${esc(state.meta)}</p>` : ''}
     </div>` + rename();
     const g = document.getElementById('g'), pv = document.getElementById('pv'), b = document.getElementById('send');
     const upd = () => { const v = parse(g.value); draft = g.value; pv.textContent = v != null ? kr(v) : ''; b.disabled = v == null; };
